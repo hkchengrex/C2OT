@@ -59,10 +59,10 @@ pip install -e .
 
 (If you encounter the File "setup.py" not found error, upgrade your pip with pip install --upgrade pip)
 
-
 ## Demo
 
-After installation, you can run our demo notebook at `moons.ipynb`. More details to be added.
+After installation, you can run our demo notebook at [moons.ipynb](moons.ipynb). More details to be added. 
+You can also run this demo on [Colab](https://colab.research.google.com/drive/1uhYPqnGlPoMTEqEgzpPvFQEcnr0faSBA?usp=sharing) without a local installation.
 
 ## Citation
 
