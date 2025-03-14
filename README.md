@@ -15,9 +15,9 @@ University of Illinois Urbana-Champaign
 
 ## High-Level Summary
 
-C<sup>2</sup>OT is an algorithm for computing prior-to-data couplings for flow-matching-based generative models at training time. 
-Our goal is to obtain straighter flows granted by optimal transport (OT) couplings, while preventing test-time degradation that OT has in the conditional setting (see figure above).
-The idea is that OT samples from a condition-skewed prior distribution while C<sup>2</sup>OT *unskews* the prior distribution by adding a condition-dependent term to the OT cost.
+C<sup>2</sup>OT is an algorithm for computing prior-to-data couplings for flow-matching-based generative models during training.
+Our goal is to achieve straighter flows, enabled by optimal transport (OT) couplings, while mitigating the test-time degradation that OT encounters in the conditional setting (see figure above).
+The key idea is that OT samples from a condition-skewed prior distribution at test time, whereas C<sup>2</sup>OT unskews the prior by incorporating a condition-dependent term into the OT cost.
 
 
 ## Installation
