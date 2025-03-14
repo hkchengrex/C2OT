@@ -1,6 +1,9 @@
-# [The Curse of Conditions: Analyzing and Improving Optimal Transport for Conditional Flow-Based Generation](https://hkchengrex.github.io/C2OT)
-
-[arXiv](https://arxiv.org/abs/2503.10636) [Colab](https://colab.research.google.com/drive/1uhYPqnGlPoMTEqEgzpPvFQEcnr0faSBA?usp=sharing)
+<div align="center">
+<p align="center">
+  <h2>The Curse of Conditions: Analyzing and Improving Optimal Transport for Conditional Flow-Based Generation</h2>
+  <a href="https://arxiv.org/abs/2503.10636">Paper</a> | <a href="https://hkchengrex.github.io/C2OT">Webpage</a> | <a href="https://colab.research.google.com/drive/1uhYPqnGlPoMTEqEgzpPvFQEcnr0faSBA?usp=sharing">Colab</a> 
+</p>
+</div>
 
 [Ho Kei Cheng](https://hkchengrex.github.io/) and [Alexander Schwing](https://www.alexander-schwing.de/)
 
