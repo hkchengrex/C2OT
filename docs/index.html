@@ -14,7 +14,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3&display=swap" rel="stylesheet">
     <meta charset="UTF-8">
-    <title>MMAudio</title>
+    <title>The Curse of Conditions</title>
 
     <link rel="icon" type="image/png" href="images/icon.png">
 
@@ -74,7 +74,33 @@
             </div>
     
             <br>
-    
+
+
+            <div class="row text-center" style="font-size:28px">
+                <div class="col strong">
+                    Abstract
+                </div>
+            </div>
+            <div class="row" style="text-align: justify;">
+                <div class="col">
+                    <p style="font-size: 18px;">
+                        Minibatch optimal transport coupling straightens paths in unconditional flow matching. 
+                        This leads to computationally less demanding inference as fewer integration steps and less complex numerical solvers can be employed when numerically solving an ordinary differential equation at test time. 
+                        However, in the conditional setting, minibatch optimal transport falls short.
+                        This is because the default optimal transport mapping disregards conditions, resulting in a conditionally skewed prior distribution during training.
+                        In contrast, at test time, we have no access to the skewed prior, and instead sample from the full, unbiased prior distribution.
+                        This gap between training and testing leads to a subpar performance.
+                        To bridge this gap, we propose conditional optimal transport (C<sup>2</sup>OT) that adds a conditional weighting term in the cost matrix when computing the optimal transport assignment. 
+                        Experiments demonstrate that this simple fix works with both discrete and continuous conditions in 8gaussians-to-moons, CIFAR-10, ImageNet-32x32, and ImageNet-256x256.
+                        Our method performs better overall compared to the existing baselines across different function evaluation budgets.
+                    </p>
+                </div>
+            </div>
+
+            <div class="text-center">
+                <img src="https://imgur.com/bcmTUiE.png" alt="our method" class="img-fluid">
+            </div>
+            <br>
  
     
         </div>
