@@ -1,0 +1,32 @@
+defaults:
+  - override hydra/job_logging: custom-simplest
+  - _self_
+
+hydra:
+  run:
+    dir: ./output/${exp_id}
+  output_subdir: ${now:%Y-%m-%d_%H-%M-%S}-hydra
+
+min_lr: 1.0e-8 # for warmup and linear LR
+
+exp_id: default
+debug: False
+cudnn_benchmark: True
+compile: True
+weights: null
+checkpoint: null
+seed: 0
+num_workers: 8 # per-GPU
+pin_memory: True # set to True if your system can handle it, i.e., have enough memory
+enable_grad_scaler: False
+
+adam_beta1: 0.9
+adam_beta2: 0.95
+
+target_r: null
+max_num_iter: 20
+target_r_tol: 1.0e-5
+ot_norm: l2_squared
+condition_norm: cosine
+
+num_gen: 50_000
