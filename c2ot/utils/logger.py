@@ -4,44 +4,17 @@ Dumps things to tensorboard and console
 
 import datetime
 import logging
-import math
 import os
-from collections import defaultdict
 from pathlib import Path
-from typing import Optional, Union
+from typing import Union
 
-import matplotlib.pyplot as plt
 import numpy as np
-import torch
-import torchaudio
 from PIL import Image
 from pytz import timezone
 from torch.utils.tensorboard import SummaryWriter
 
 from c2ot.utils.time_estimator import PartialTimeEstimator, TimeEstimator
 from c2ot.utils.timezone import my_timezone
-
-
-def tensor_to_numpy(image: torch.Tensor):
-    image_np = (image.numpy() * 255).astype('uint8')
-    return image_np
-
-
-def detach_to_cpu(x: torch.Tensor):
-    return x.detach().cpu()
-
-
-def fix_width_trunc(x: float):
-    return ('{:.9s}'.format('{:0.9f}'.format(x)))
-
-
-def plot_spectrogram(spectrogram: np.ndarray, title=None, ylabel="freq_bin", ax=None):
-    if ax is None:
-        _, ax = plt.subplots(1, 1)
-    if title is not None:
-        ax.set_title(title)
-    ax.set_ylabel(ylabel)
-    ax.imshow(spectrogram, origin="lower", aspect="auto", interpolation="nearest")
 
 
 class TensorboardLogger:
@@ -119,76 +92,12 @@ class TensorboardLogger:
         msg = f'{msg} {metrics_msg}'
         self.py_log.info(msg)
 
-    def log_histogram(self, tag: str, hist: torch.Tensor, it: int):
-        if self.tb_log is None:
-            return
-        # hist should be a 1D tensor
-        hist = hist.cpu().numpy()
-        fig, ax = plt.subplots()
-        x_range = np.linspace(0, 1, len(hist))
-        ax.bar(x_range, hist, width=1 / (len(hist) - 1))
-        ax.set_xticks(x_range)
-        ax.set_xticklabels(x_range)
-        plt.tight_layout()
-        self.tb_log.add_figure(tag, fig, it)
-        plt.close()
-
     def log_image(self, prefix: str, tag: str, image: np.ndarray, it: int):
         image_dir = self.run_dir / f'{prefix}_images'
         image_dir.mkdir(exist_ok=True, parents=True)
 
         image = Image.fromarray(image)
         image.save(image_dir / f'{it:09d}_{tag}.png')
-
-    def log_audio(self,
-                  prefix: str,
-                  tag: str,
-                  waveform: torch.Tensor,
-                  it: Optional[int] = None,
-                  *,
-                  subdir: Optional[Path] = None,
-                  sample_rate: int = 16000) -> Path:
-        if subdir is None:
-            audio_dir = self.run_dir / prefix
-        else:
-            audio_dir = self.run_dir / subdir / prefix
-        audio_dir.mkdir(exist_ok=True, parents=True)
-
-        if it is None:
-            name = f'{tag}.flac'
-        else:
-            name = f'{it:09d}_{tag}.flac'
-
-        torchaudio.save(audio_dir / name,
-                        waveform.cpu().float(),
-                        sample_rate=sample_rate,
-                        channels_first=True)
-        return Path(audio_dir)
-
-    def log_spectrogram(
-        self,
-        prefix: str,
-        tag: str,
-        spec: torch.Tensor,
-        it: Optional[int],
-        *,
-        subdir: Optional[Path] = None,
-    ):
-        if subdir is None:
-            spec_dir = self.run_dir / prefix
-        else:
-            spec_dir = self.run_dir / subdir / prefix
-        spec_dir.mkdir(exist_ok=True, parents=True)
-
-        if it is None:
-            name = f'{tag}.png'
-        else:
-            name = f'{it:09d}_{tag}.png'
-
-        plot_spectrogram(spec.cpu().float())
-        plt.tight_layout()
-        plt.savefig(spec_dir / name)
-        plt.close()
 
     def log_string(self, tag: str, x: str):
         self.py_log.info(f'{tag} - {x}')
@@ -210,4 +119,3 @@ class TensorboardLogger:
 
     def critical(self, x):
         self.py_log.critical(x)
-

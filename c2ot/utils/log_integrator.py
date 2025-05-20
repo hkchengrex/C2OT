@@ -45,14 +45,6 @@ class Integrator:
         for k, v in tensor_dict.items():
             self.add_scalar(k, v)
 
-    def add_binned_tensor(self, key: str, x: torch.Tensor, indices: torch.Tensor):
-        if key not in self.binned_tensors:
-            self.binned_tensors[key] = [x.detach().flatten()]
-            self.binned_tensor_indices[key] = [indices.detach().flatten()]
-        else:
-            self.binned_tensors[key].append(x.detach().flatten())
-            self.binned_tensor_indices[key].append(indices.detach().flatten())
-
     def add_hook(self, hook: Callable[[torch.Tensor], tuple[str, torch.Tensor]]):
         """
         Adds a custom hook, i.e. compute new metrics using values in the dict

@@ -9,9 +9,9 @@ from torch.utils.data.dataloader import default_collate
 from torch.utils.data.distributed import DistributedSampler
 from torchvision import datasets, transforms
 
+from c2ot.ot import OTConditionalPlanSampler
 from c2ot.data.memmap_images import MemmapImages
 from c2ot.utils.dist_utils import local_rank
-from c2ot.utils.ot import OTConditionalPlanSampler
 
 log = logging.getLogger()
 
@@ -27,6 +27,7 @@ def worker_init_fn(worker_id: int):
 
 def setup_training_datasets(cfg: DictConfig) -> tuple[Dataset, DistributedSampler, DataLoader]:
     if cfg.dataset == 'cifar':
+        # For CIFAR-10, use PyTorch's built-in
         dataset = datasets.CIFAR10(
             cfg.data_path,
             train=True,
@@ -38,28 +39,20 @@ def setup_training_datasets(cfg: DictConfig) -> tuple[Dataset, DistributedSample
             ]),
         )
     elif cfg.dataset.startswith('imagenet'):
-        if cfg.use_memmap:
-            dataset = MemmapImages(
-                cfg.memmap_path,
-                transform=transforms.Compose([
-                    transforms.RandomHorizontalFlip(),
-                    transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
-                ]),
-            )
-        else:
-            dataset = datasets.ImageFolder(
-                cfg.data_path,
-                transform=transforms.Compose([
-                    transforms.RandomHorizontalFlip(),
-                    transforms.ToTensor(),
-                    transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
-                ]),
-            )
+        # For ImageNet, use memmapped images for efficiency
+        dataset = MemmapImages(
+            cfg.memmap_path,
+            transform=transforms.Compose([
+                transforms.RandomHorizontalFlip(),
+                transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+            ]),
+        )
 
-    batch_size = cfg.ot_batch_size
+    batch_size = cfg.batch_size * cfg.oversample_ratio
     num_workers = cfg.num_workers
     pin_memory = cfg.pin_memory
 
+    # We run OT in the dataloader, so we need to construct the OT planner here
     fm_type = cfg.fm_type
     if fm_type == 'fm':
         ot_planner = None
@@ -92,6 +85,7 @@ def error_avoidance_collate(batch):
 
 
 # https://github.com/huggingface/pytorch-image-models/blob/main/timm/data/loader.py
+# So the workers are always working between epochs
 class MultiEpochsDataLoader(DataLoader):
 
     def __init__(self, *args, **kwargs):
@@ -127,11 +121,8 @@ class _RepeatSampler(object):
             yield from iter(self.sampler)
 
 
-def ot_collate(batch, error_avoidance: bool, ot_planner: OTConditionalPlanSampler = None):
-    if error_avoidance:
-        batch = error_avoidance_collate(batch)
-    else:
-        batch = default_collate(batch)
+def ot_collate(batch, ot_planner: OTConditionalPlanSampler = None):
+    batch = default_collate(batch)
 
     x1, c = batch
     x0 = torch.randn_like(x1)
@@ -155,18 +146,15 @@ def construct_loader(
         shuffle: bool = True,
         drop_last: bool = True,
         pin_memory: bool = False,
-        error_avoidance: bool = False,
         ot_planner: OTConditionalPlanSampler = None) -> tuple[DistributedSampler, DataLoader]:
     train_sampler = DistributedSampler(dataset, rank=local_rank, shuffle=shuffle)
-    train_loader = MultiEpochsDataLoader(
-        dataset,
-        batch_size,
-        sampler=train_sampler,
-        num_workers=num_workers,
-        worker_init_fn=worker_init_fn,
-        drop_last=drop_last,
-        persistent_workers=num_workers > 0,
-        pin_memory=pin_memory,
-        #   collate_fn=error_avoidance_collate if error_avoidance else None)
-        collate_fn=lambda x: ot_collate(x, error_avoidance, ot_planner=ot_planner))
+    train_loader = MultiEpochsDataLoader(dataset,
+                                         batch_size,
+                                         sampler=train_sampler,
+                                         num_workers=num_workers,
+                                         worker_init_fn=worker_init_fn,
+                                         drop_last=drop_last,
+                                         persistent_workers=num_workers > 0,
+                                         pin_memory=pin_memory,
+                                         collate_fn=lambda x: ot_collate(x, ot_planner=ot_planner))
     return train_sampler, train_loader

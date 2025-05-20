@@ -1,22 +1,19 @@
 """
-trainer.py - wrapper and utility functions for network training
+runner.py - wrapper and utility functions for network training
 Compute loss, back-prop, update parameters, logging, etc.
 """
 import copy
-import math
 import os
 from functools import partial
 from pathlib import Path
 from typing import Optional, Union
 
 import torch
-import torch.distributed
-import torch.nn.functional as F
 import torch.optim as optim
 from omegaconf import DictConfig
 from torch.nn.parallel import DistributedDataParallel as DDP
 
-from c2ot.eval import evaluate_ddp
+from c2ot.evaluate import evaluate
 from c2ot.model.unet import UNetModelWrapper
 from c2ot.utils.dist_utils import info_if_rank_zero, local_rank, string_if_rank_zero
 from c2ot.utils.gen_utils import ema_update, generate_samples
@@ -33,17 +30,17 @@ class Runner:
         log: TensorboardLogger,
         run_path: Union[str, Path],
         for_training: bool = True,
-        val_class_features: dict[str, torch.Tensor] = None,
+        val_clip_feautres: dict[str, torch.Tensor] = None,
     ):
         self.exp_id = cfg.exp_id
         self.use_amp = cfg.amp
         self.for_training = for_training
         self.cfg = cfg
-        self.val_class_features = val_class_features
+        self.val_clip_features = val_clip_feautres
         self.num_gen = cfg.num_gen
-        if self.val_class_features is not None:
-            for k, v in self.val_class_features.items():
-                self.val_class_features[k] = v.cuda()
+        if self.val_clip_features is not None:
+            for k, v in self.val_clip_features.items():
+                self.val_clip_features[k] = v.cuda()
 
         self.continuous_code = (cfg.conditioning_code == 'continuous')
         self.dataset = cfg.dataset
@@ -51,7 +48,7 @@ class Runner:
         self.num_classes = cfg.num_classes
         self.conditional = cfg.conditional
 
-        self.evaluate = partial(evaluate_ddp,
+        self.evaluate = partial(evaluate,
                                 num_classes=cfg.num_classes,
                                 conditional=self.conditional,
                                 size=cfg.size,
@@ -59,25 +56,10 @@ class Runner:
                                 dataset=cfg.dataset,
                                 num_gen=self.num_gen,
                                 tol=1e-5,
-                                class_features=self.val_class_features)
+                                clip_features=self.val_clip_features)
 
         # setting up the model
-        if cfg.model == 'unet':
-            network = UNetModelWrapper(
-                dim=(3, self.size, self.size),
-                num_res_blocks=2,
-                num_channels=128,
-                channel_mult=[1, 2, 2, 2],
-                num_heads=4,
-                num_head_channels=64,
-                attention_resolutions='16',
-                dropout=cfg.dropout,
-                num_classes=self.num_classes,
-                continuous_code=self.continuous_code,
-                code_dim=cfg.code_dim,
-                conditional=self.conditional,
-            )
-        elif cfg.model == 'unet-large':
+        if cfg.model == 'unet-cifar':
             network = UNetModelWrapper(
                 dim=(3, self.size, self.size),
                 num_res_blocks=2,
@@ -93,7 +75,7 @@ class Runner:
                 code_dim=cfg.code_dim,
                 conditional=self.conditional,
             )
-        elif cfg.model == 'unet-ms':
+        elif cfg.model == 'unet-imagenet':
             network = UNetModelWrapper(
                 dim=(3, self.size, self.size),
                 num_res_blocks=3,
@@ -109,33 +91,13 @@ class Runner:
                 code_dim=cfg.code_dim,
                 conditional=self.conditional,
             )
-        elif cfg.model == 'unet-ms-large':
-            network = UNetModelWrapper(
-                dim=(3, self.size, self.size),
-                num_res_blocks=3,
-                num_channels=192,
-                channel_mult=[1, 2, 3, 4],
-                num_heads=4,
-                num_head_channels=64,
-                attention_resolutions='8',
-                dropout=cfg.dropout,
-                num_classes=self.num_classes,
-                use_scale_shift_norm=True,
-                continuous_code=self.continuous_code,
-                code_dim=cfg.code_dim,
-                conditional=self.conditional,
-            )
         else:
             raise NotImplementedError
 
         self.network = DDP(network.cuda(), device_ids=[local_rank], broadcast_buffers=False)
-
         self.parameters = list(self.network.parameters())
 
         if cfg.compile:
-            # NOTE: though train_fn and val_fn are very similar
-            # (early on they are implemented as a single function)
-            # keeping them separate and compiling them separately are CRUCIAL for high performance
             self.train_fn = torch.compile(self.train_fn)
 
         # ema profile
@@ -155,13 +117,12 @@ class Runner:
         self.run_path = Path(run_path)
 
         string_if_rank_zero(self.log, 'model_size',
-                            f'{sum([param.nelement() for param in self.network.parameters()])}')
+                            f'{sum([param.nelement() for param in self.parameters])}')
         string_if_rank_zero(
             self.log, 'number_of_parameters_that_require_gradient: ',
             str(
                 sum([
-                    param.nelement()
-                    for param in filter(lambda p: p.requires_grad, self.network.parameters())
+                    param.nelement() for param in filter(lambda p: p.requires_grad, self.parameters)
                 ])))
         info_if_rank_zero(self.log, 'torch version: ' + torch.__version__)
         self.train_integrator = Integrator(self.log, distributed=True)
@@ -173,7 +134,6 @@ class Runner:
             self.enter_train()
 
             base_lr = cfg.learning_rate
-            # parameter_groups = get_parameter_groups(self.network, cfg, print_log=(local_rank == 0))
             self.optimizer = optim.Adam(self.parameters,
                                         lr=base_lr,
                                         betas=(cfg.adam_beta1, cfg.adam_beta2),
@@ -217,7 +177,6 @@ class Runner:
             # Logging info
             self.log_text_interval = cfg.log_text_interval
             self.log_extra_interval = cfg.log_extra_interval
-            self.save_weights_interval = cfg.save_weights_interval
             self.save_checkpoint_interval = cfg.save_checkpoint_interval
             self.save_copy_iterations = cfg.save_copy_iterations
             self.save_copy_always = cfg.save_copy_always
@@ -253,7 +212,7 @@ class Runner:
         with torch.amp.autocast('cuda', enabled=False):
             loss = ((pred_v.float() - ut)**2)
             mean_loss = loss.mean()
-        return x1, loss, mean_loss, t
+        return x1, mean_loss, t
 
     def train_pass(
         self,
@@ -276,13 +235,13 @@ class Runner:
                 c = c.cuda(non_blocking=True)
 
             self.log.data_timer.end()
-            x1, loss, mean_loss, t = self.train_fn(x0, x1, c)
+            # forward pass
+            x1, mean_loss, t = self.train_fn(x0, x1, c)
 
             self.train_integrator.add_dict({'loss': mean_loss})
 
         if it % self.log_text_interval == 0 and it != 0:
             self.train_integrator.add_scalar('lr', self.scheduler.get_last_lr()[0])
-            self.train_integrator.add_binned_tensor('binned_loss', loss, t)
             if other_things_to_log is not None:
                 for k, v in other_things_to_log.items():
                     self.train_integrator.add_scalar(k, v)
@@ -312,6 +271,7 @@ class Runner:
         self.enter_val()
         with (torch.amp.autocast('cuda', enabled=self.use_amp,
                                  dtype=torch.bfloat16), torch.inference_mode()):
+            # generate some samples for visualization and performance tracking
             try:
                 if it % self.log_extra_interval == 0:
                     generate_samples(
@@ -321,26 +281,22 @@ class Runner:
                         num_classes=self.num_classes,
                         size=self.size,
                         conditional=self.conditional,
-                        class_features=self.val_class_features,
+                        class_features=self.val_clip_features,
                     )
             except Exception as e:
                 self.log.warning(f'Error in extra logging: {e}')
                 if self.cfg.debug:
                     raise
 
-        # Save network weights and checkpoint if needed
+        # Save network checkpoint if needed
         save_copy = (it in self.save_copy_iterations) or self.save_copy_always
-
-        if (it % self.save_weights_interval == 0 and it != 0):
-            self.save_weights(it)
-
         if it % self.save_checkpoint_interval == 0 and it != 0:
             self.save_checkpoint(it, save_copy=save_copy)
 
         self.log.data_timer.start()
 
     @torch.inference_mode()
-    def inference_pass(self, it: int) -> Path:
+    def validation_pass(self, it: int) -> Path:
         self.enter_val()
         with torch.amp.autocast('cuda', enabled=self.use_amp, dtype=torch.bfloat16):
             fid_normal = self.evaluate(
@@ -363,25 +319,12 @@ class Runner:
                 self.val_integrator.finalize('val', it)
                 self.val_integrator.reset_except_hooks()
 
-    def save_weights(self, it, save_copy=False):
-        if local_rank != 0:
-            return
-
-        os.makedirs(self.run_path, exist_ok=True)
-        if save_copy:
-            model_path = self.run_path / f'{self.exp_id}_{it}.pth'
-            torch.save(self.network.module.state_dict(), model_path)
-            self.log.info(f'Network weights saved to {model_path}.')
-
-        # if last exists, move it to a shadow copy
-        model_path = self.run_path / f'{self.exp_id}_last.pth'
-        if model_path.exists():
-            shadow_path = model_path.with_name(model_path.name.replace('last', 'shadow'))
-            model_path.replace(shadow_path)
-            self.log.info(f'Network weights shadowed to {shadow_path}.')
-
-        torch.save(self.network.module.state_dict(), model_path)
-        self.log.info(f'Network weights saved to {model_path}.')
+    def get_latest_checkpoint_path(self):
+        ckpt_path = self.run_path / f'{self.exp_id}_ckpt_last.pth'
+        if not ckpt_path.exists():
+            info_if_rank_zero(self.log, f'No checkpoint found at {ckpt_path}.')
+            return None
+        return ckpt_path
 
     def save_checkpoint(self, it, save_copy=False):
         if local_rank != 0:
@@ -411,27 +354,6 @@ class Runner:
         torch.save(checkpoint, model_path)
         self.log.info(f'Checkpoint saved to {model_path}.')
 
-    def get_latest_checkpoint_path(self):
-        ckpt_path = self.run_path / f'{self.exp_id}_ckpt_last.pth'
-        if not ckpt_path.exists():
-            info_if_rank_zero(self.log, f'No checkpoint found at {ckpt_path}.')
-            return None
-        return ckpt_path
-
-    def get_latest_weight_path(self):
-        weight_path = self.run_path / f'{self.exp_id}_last.pth'
-        if not weight_path.exists():
-            self.log.info(f'No weight found at {weight_path}.')
-            return None
-        return weight_path
-
-    def get_final_ema_weight_path(self):
-        weight_path = self.run_path / f'{self.exp_id}_ema_final.pth'
-        if not weight_path.exists():
-            self.log.info(f'No weight found at {weight_path}.')
-            return None
-        return weight_path
-
     def load_checkpoint(self, path):
         # This method loads everything and should be used to resume training
         map_location = 'cuda:%d' % local_rank
@@ -453,21 +375,6 @@ class Runner:
         self.log.info('Network weights, optimizer states, and scheduler states loaded.')
 
         return it
-
-    def load_weights_in_memory(self, src_dict):
-        self.network.module.load_weights(src_dict)
-        self.log.info('Network weights loaded from memory.')
-
-    def load_weights(self, path):
-        # This method loads only the network weight and should be used to load a pretrained model
-        map_location = 'cuda:%d' % local_rank
-        src_dict = torch.load(path, map_location={'cuda:0': map_location}, weights_only=True)
-
-        self.log.info(f'Importing network weights from {path}...')
-        self.load_weights_in_memory(src_dict)
-
-    def weights(self):
-        return self.network.module.state_dict()
 
     def enter_train(self):
         self.integrator = self.train_integrator

@@ -1,0 +1,51 @@
+defaults:
+  - base_config
+  - override hydra/job_logging: custom
+  - _self_
+
+hydra:
+  run:
+    dir: ./output/cifar/${exp_id}
+  output_subdir: train-${now:%Y-%m-%d_%H-%M-%S}-hydra
+
+
+dataset: cifar
+num_classes: 10
+size: 32
+data_path: ../data/cifar
+conditional: True
+conditioning_code: class
+code_dim: -1
+
+# fm / ot / ot-cls
+fm_type: fm
+cls_weight: 1e8
+condition_norm: l2_squared
+
+model: unet-cifar
+
+# ema configuration
+ema_decay: 0.9999
+
+num_iterations: 100_000
+learning_rate: 2.0e-4
+linear_warmup_steps: 5_000
+
+log_text_interval: 200
+log_extra_interval: 20_000
+val_interval: 100_000
+save_checkpoint_interval: 10_000
+save_copy_iterations: []
+save_copy_always: True
+
+eval_batch_size: 512 # per-GPU
+batch_size: 256 # global, aka effective; default: 2 GPUs
+# How large should the OT batch be compared to the network batch?
+# With 2 GPUs, 512/2*5=640 given in the paper
+oversample_ratio: 5 
+
+lr_schedule: constant
+
+clip_grad_norm: 1.0
+weight_decay: 0.0
+dropout: 0.0

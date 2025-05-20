@@ -41,10 +41,7 @@ def train(cfg: DictConfig):
     run_dir = HydraConfig.get().run.dir
 
     # wrap python logger with a tensorboard logger
-    log = TensorboardLogger(cfg.exp_id,
-                            run_dir,
-                            logging.getLogger(),
-                            is_rank0=(local_rank == 0))
+    log = TensorboardLogger(cfg.exp_id, run_dir, logging.getLogger(), is_rank0=(local_rank == 0))
 
     info_if_rank_zero(log, f'All configuration: {cfg}')
     info_if_rank_zero(log, f'Number of GPUs detected: {num_gpus}')
@@ -59,12 +56,10 @@ def train(cfg: DictConfig):
 
     # setting up configurations
     info_if_rank_zero(log, f'Training configuration: {cfg}')
-    if cfg.ot_batch_size is None:
-        cfg.ot_batch_size = cfg.batch_size
     cfg.batch_size //= num_gpus
-    cfg.ot_batch_size //= num_gpus
+    ot_batch_size = cfg.batch_size * cfg.oversample_ratio
     info_if_rank_zero(log, f'Batch size (per GPU): {cfg.batch_size}')
-    info_if_rank_zero(log, f'Sample batch size (per GPU): {cfg.ot_batch_size}')
+    info_if_rank_zero(log, f'OT batch size (per GPU): {ot_batch_size}')
 
     # determine time to change max skip
     total_iterations = cfg['num_iterations']
@@ -85,7 +80,7 @@ def train(cfg: DictConfig):
                      log=log,
                      run_path=run_dir,
                      for_training=True,
-                     val_class_features=val_clip_features).enter_train()
+                     val_clip_feautres=val_clip_features).enter_train()
     eval_rng_clone = trainer.rng.graphsafe_get_state()
 
     # load previous checkpoint if needed
@@ -100,16 +95,9 @@ def train(cfg: DictConfig):
             curr_iter = trainer.load_checkpoint(checkpoint)
             info_if_rank_zero(log, 'Latest checkpoint loaded!')
         else:
-            # load previous network weights if needed
             curr_iter = 0
-            if cfg['weights'] is not None:
-                info_if_rank_zero(log, 'Loading weights from the disk')
-                trainer.load_weights(cfg['weights'])
-                cfg['weights'] = None
 
     batch_size = cfg.batch_size
-    ot_batch_size = cfg.ot_batch_size
-
     # determine max epoch
     total_epoch = math.ceil(total_iterations / len(loader) / (ot_batch_size // batch_size))
     current_epoch = curr_iter // len(loader) // (ot_batch_size // batch_size)
@@ -157,11 +145,12 @@ def train(cfg: DictConfig):
                                        curr_iter,
                                        other_things_to_log=other_things_to_log)
 
-                    if (curr_iter + 1) % cfg.eval_interval == 0:
+                    if (curr_iter + 1) % cfg.val_interval == 0:
+                        # get validation FID to track training progress
                         train_rng_snapshot = trainer.rng.graphsafe_get_state()
                         trainer.rng.graphsafe_set_state(eval_rng_clone)
                         info_if_rank_zero(log, f'Iteration {curr_iter}: validating')
-                        trainer.inference_pass(curr_iter)
+                        trainer.validation_pass(curr_iter)
                         distributed.barrier()
                         trainer.rng.graphsafe_set_state(train_rng_snapshot)
 
@@ -185,9 +174,7 @@ def train(cfg: DictConfig):
 
     # final eval
     ema_model = trainer.ema
-    methods = [
-        'euler_2', 'euler_5', 'euler_10', 'euler_25', 'euler_50', 'euler_100', 'dopri5'
-    ]
+    methods = ['euler_2', 'euler_5', 'euler_10', 'euler_25', 'euler_50', 'euler_100', 'dopri5']
 
     for method in methods:
         log.info(f'Running evaluation for {method}')

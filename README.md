@@ -57,11 +57,14 @@ cd C2OT
 pip install -e .
 ```
 
-(If you encounter the File "setup.py" not found error, upgrade your pip with pip install --upgrade pip)
+(If you encounter the `File "setup.py" not found` error, upgrade your pip with pip install --upgrade pip)
 
 ## Demo
 
-After installation, you can run our demo notebook at [moons.ipynb](moons.ipynb). More details to be added. 
+After installation, you can run our demo notebook at [moons.ipynb](moons.ipynb). 
+This demo contains pretty much everything you need to know about C<sup>2</sup>OT.
+The rest of this repository is for reproducing our results in CIFAR-10 and ImageNet-32.
+
 You can also run this demo on [Colab](https://colab.research.google.com/drive/1uhYPqnGlPoMTEqEgzpPvFQEcnr0faSBA?usp=sharing) without a local installation.
 
 ## Citation

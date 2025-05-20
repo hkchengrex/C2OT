@@ -46,6 +46,7 @@ dependencies = [
   'python-dotenv',
   'clean-fid',
   'torchdyn >= 1.0.6',
+  'pytz',
 ]
 
 [tool.hatch.build.targets.wheel]
