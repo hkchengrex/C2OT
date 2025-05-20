@@ -67,6 +67,71 @@ The rest of this repository is for reproducing our results in CIFAR-10 and Image
 
 You can also run this demo on [Colab](https://colab.research.google.com/drive/1uhYPqnGlPoMTEqEgzpPvFQEcnr0faSBA?usp=sharing) without a local installation.
 
+
+## CIFAR-10
+
+### Data Preparation
+
+You don't need to prepare the dataset manually. The code should download the dataset automatically. You can change the dataset path in `config/cifar.yaml` if you want to.
+
+### Training
+
+To train, use `torchrun` (two GPUs, ~10G memory usage each):
+
+```bash
+OMP_NUM_THREADS=4 torchrun --standalone --nproc-per-node=2 train.py --config-name=cifar  exp_id=<some unqiue experiment identifier> fm_type=<fm/ot/c2ot>
+```
+
+The trained model and the logs will be saved in `outputs/cifar/<exp_id>`.
+The code will also automatic evaluate the model after training.
+
+To evaluate, 
+```bash
+OMP_NUM_THREADS=4 torchrun --standalone --nproc-per-node=2 train.py --config-name=cifar  exp_id=<some unqiue experiment identifier> checkpoint=<path to the pretrained checkpoint>
+```
+
+The generated samples (as zip files) will be saved in `outputs/cifar/<exp_id>`.
+
+
+## ImageNet-32
+
+### Data Preparation
+
+
+#### 1. Download the face-blurred ImageNet train and validation set from https://image-net.org/download-images.php
+#### 2. Downsample the data to 32x32 using https://github.com/PatrykChrabaszcz/Imagenet32_Scripts, e.g., 
+```bash
+python Imagenet32_Scripts/image_resizer_imagent.py -i ../imagenet/train_blurred -o ../imagenet/train_blurred_32 -s 32 -a box  -r -j 10 
+```
+Replace the path to the dataset with your own path. Repeat this for the validation set.
+
+#### 3. Precompute FID statistics on the validation set using
+```bash
+python -c "from cleanfid import fid; fid.make_custom_stats('imagenet32_val', '../imagenet/train_blurred_32/box', mode='legacy_tensorflow', num_workers=16, batch_size=256)"
+```
+Replace the path with the path to your downsampled validation set. 
+
+#### 4. Download the captions
+Download the captions from https://huggingface.co/datasets/visual-layer/imagenet-1k-vl-enriched. You might have to download the entire dataset and only keep `train_captions.json` and `val_captions.json`.
+
+#### 5. Precompute the CLIP features (to speed up training)
+```bash
+python scripts/extract_clip_captions.py --imagenet_path ../imagenet/train_blurred_32/box --caption_path ../imagenet-1k-vl-enriched/train_captions.json --output_path ../imagenet/train_clip_captions.pth
+```
+Replace the path with the path to your downsampled training set and the captions.
+Repeat this for the validation set.
+
+#### 6. Build TensorDict for Imagenet (to speed up data loading)
+```bash
+python scripts/make_memmap.py --input_dir ../imagenet/train_blurred_32/box --output_dir ../imagenet/train_blurred_32/train_memmap --clip_features ../imagenet/train_clip_captions.pth
+```
+Replace the path with the path to your downsampled training set and the captions.
+You do not need to do this for the validation set.
+
+#### 7. Update `config/imagenet32.yaml`:
+- `data_path`: path to `train_memmap`
+- `val_clip_path`: path to `val_clip_captions.pth`
+
 ## Citation
 
 ```bibtex

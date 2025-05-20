@@ -41,7 +41,7 @@ def setup_training_datasets(cfg: DictConfig) -> tuple[Dataset, DistributedSample
     elif cfg.dataset.startswith('imagenet'):
         # For ImageNet, use memmapped images for efficiency
         dataset = MemmapImages(
-            cfg.memmap_path,
+            cfg.data_path,
             transform=transforms.Compose([
                 transforms.RandomHorizontalFlip(),
                 transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
@@ -58,7 +58,7 @@ def setup_training_datasets(cfg: DictConfig) -> tuple[Dataset, DistributedSample
         ot_planner = None
     elif fm_type == 'ot':
         ot_planner = OTConditionalPlanSampler()
-    elif fm_type == 'ot-cls':
+    elif fm_type == 'c2ot':
         ot_planner = OTConditionalPlanSampler(condition_weight=cfg.cls_weight,
                                               target_r=cfg.target_r,
                                               max_num_iter=cfg.max_num_iter,

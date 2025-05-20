@@ -20,7 +20,7 @@ conditional: True
 conditioning_code: class
 code_dim: -1
 
-# fm / ot / ot-cls
+# fm / ot / c2ot
 fm_type: fm
 cls_weight: 1e8
 condition_norm: l2_squared

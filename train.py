@@ -111,7 +111,7 @@ def train(cfg: DictConfig):
             # Crucial for randomness!
             sampler.set_epoch(current_epoch)
             current_epoch += 1
-            info_if_rank_zero(f'Current epoch: {current_epoch}')
+            info_if_rank_zero(log, f'Current epoch: {current_epoch}')
             rng = torch.Generator()
             rng.manual_seed(cfg['seed'] + local_rank)
 
@@ -168,7 +168,6 @@ def train(cfg: DictConfig):
     finally:
         if not cfg.debug:
             trainer.save_checkpoint(curr_iter)
-            trainer.save_weights(curr_iter)
 
     distributed.barrier()
 
@@ -177,7 +176,7 @@ def train(cfg: DictConfig):
     methods = ['euler_2', 'euler_5', 'euler_10', 'euler_25', 'euler_50', 'euler_100', 'dopri5']
 
     for method in methods:
-        log.info(f'Running evaluation for {method}')
+        info_if_rank_zero(log, f'Running evaluation for {method}')
         fid = trainer.evaluate(
             network=ema_model,
             num_seeds=1,

@@ -12,17 +12,16 @@ hydra:
 dataset: imagenet32
 num_classes: null
 size: 32
-data_path: ../data/imagenet/train_blurred_32/memmap
+data_path: ../data/imagenet/test-v2/train_memmap
 
 num_gen: 49997
 
-clip_path: ../data/imagenet/train_clip_captions.pth
-val_clip_path: ../data/imagenet/val_clip_captions.pth
+val_clip_path: ../data/imagenet/test-v2/val_clip_captions.pth
 conditional: True
 conditioning_code: continuous
 code_dim: 1024
 
-# fm / ot / ot-cls
+# fm / ot / c2ot
 fm_type: fm
 cls_weight: 100.0
 target_r: 0.2
@@ -38,7 +37,7 @@ linear_warmup_steps: 20_000
 
 log_text_interval: 200
 log_extra_interval: 50_000
-eval_interval: 300_000
+val_interval: 300_000
 save_checkpoint_interval: 30_000
 save_copy_iterations: []
 save_copy_always: True
