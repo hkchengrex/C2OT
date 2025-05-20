@@ -31,4 +31,4 @@ target_r_tol: 1.0e-5
 ot_norm: l2_squared
 condition_norm: cosine
 
-num_gen: 50_000
+

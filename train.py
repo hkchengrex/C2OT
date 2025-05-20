@@ -111,7 +111,7 @@ def train(cfg: DictConfig):
             # Crucial for randomness!
             sampler.set_epoch(current_epoch)
             current_epoch += 1
-            log.info(f'Current epoch: {current_epoch}')
+            info_if_rank_zero(f'Current epoch: {current_epoch}')
             rng = torch.Generator()
             rng.manual_seed(cfg['seed'] + local_rank)
 

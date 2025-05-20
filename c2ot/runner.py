@@ -101,10 +101,7 @@ class Runner:
             self.train_fn = torch.compile(self.train_fn)
 
         # ema profile
-        if for_training:
-            self.ema = copy.deepcopy(self.network.module)
-        else:
-            self.ema = None
+        self.ema = copy.deepcopy(self.network.module)
         self.ema_decay = cfg.ema_decay
         self.num_classes = cfg.num_classes
         self.size = cfg.size
@@ -368,11 +365,14 @@ class Runner:
 
         map_location = 'cuda:%d' % local_rank
         self.network.module.load_state_dict(weights)
-        self.optimizer.load_state_dict(optimizer)
-        self.scheduler.load_state_dict(scheduler)
+        if self.for_training:
+            self.optimizer.load_state_dict(optimizer)
+            self.scheduler.load_state_dict(scheduler)
 
-        self.log.info(f'Global iteration {it} loaded.')
-        self.log.info('Network weights, optimizer states, and scheduler states loaded.')
+            self.log.info(f'Global iteration {it} loaded.')
+            self.log.info('Network weights, optimizer states, and scheduler states loaded.')
+        else:
+            self.log.info('Network weights and ema weights loaded.')
 
         return it
 
