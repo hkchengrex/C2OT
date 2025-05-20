@@ -18,7 +18,7 @@ compile: True
 weights: null
 checkpoint: null
 seed: 0
-num_workers: 8 # per-GPU
+num_workers: 12 # per-GPU
 pin_memory: True # set to True if your system can handle it, i.e., have enough memory
 enable_grad_scaler: False
 

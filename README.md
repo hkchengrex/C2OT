@@ -85,6 +85,8 @@ OMP_NUM_THREADS=4 torchrun --standalone --nproc-per-node=2 train.py --config-nam
 The trained model and the logs will be saved in `outputs/cifar/<exp_id>`.
 The code will also automatic evaluate the model after training.
 
+### Evaluation
+
 To evaluate, 
 ```bash
 OMP_NUM_THREADS=4 torchrun --standalone --nproc-per-node=2 train.py --config-name=cifar  exp_id=<some unqiue experiment identifier> checkpoint=<path to the pretrained checkpoint>
@@ -131,6 +133,25 @@ You do not need to do this for the validation set.
 #### 7. Update `config/imagenet32.yaml`:
 - `data_path`: path to `train_memmap`
 - `val_clip_path`: path to `val_clip_captions.pth`
+
+
+### Training
+To train, use `torchrun` (four GPUs, ~12G memory usage each):
+
+```bash
+OMP_NUM_THREADS=4 torchrun --standalone --nproc-per-node=4 train.py --config-name=imagenet32 exp_id=<some unqiue experiment identifier> fm_type=<fm/ot/c2ot>
+```
+
+The trained model and the logs will be saved in `outputs/imagenet32/<exp_id>`.
+The code will also automatic evaluate the model after training.
+
+### Evaluation
+To evaluate, 
+```bash
+OMP_NUM_THREADS=4 torchrun --standalone --nproc-per-node=4 train.py --config-name=imagenet32 exp_id=<some unqiue experiment identifier> checkpoint=<path to the pretrained checkpoint>
+```
+The generated samples (as zip files) will be saved in `outputs/imagenet32/<exp_id>`.
+
 
 ## Citation
 

@@ -66,7 +66,7 @@ def setup_training_datasets(cfg: DictConfig) -> tuple[Dataset, DistributedSample
                                               x_norm=cfg.ot_norm,
                                               condition_norm=cfg.condition_norm)
     else:
-        raise NotImplementedError
+        raise NotImplementedError(f'Unknown fm_type: {fm_type}')
 
     sampler, loader = construct_loader(dataset,
                                        batch_size,
