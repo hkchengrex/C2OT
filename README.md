@@ -152,6 +152,9 @@ OMP_NUM_THREADS=4 torchrun --standalone --nproc-per-node=4 train.py --config-nam
 ```
 The generated samples (as zip files) will be saved in `outputs/imagenet32/<exp_id>`.
 
+## Pretrained Models
+
+Pretrained checkpoints for CIFAR-10 and ImageNet-32 trained using FM/OT/C<sup>2</sup>OT are available at [Hugging Face](https://huggingface.co/collections/hkchengrex/c2ot-682d1cbaf0ed156975dfe1a8).
 
 ## Citation
 
