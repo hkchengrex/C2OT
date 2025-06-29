@@ -7,7 +7,9 @@
 <a href="https://hkchengrex.github.io/">Ho Kei Cheng</a> and 
 <a href="https://www.alexander-schwing.de/">Alexander Schwing</a>
 <br>
-University of Illinois Urbana-Champaign
+  University of Illinois Urbana-Champaign
+<br>
+  ICCV 2025
 </p>
 </div>
 
