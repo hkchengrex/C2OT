@@ -154,6 +154,10 @@ OMP_NUM_THREADS=4 torchrun --standalone --nproc-per-node=4 train.py --config-nam
 ```
 The generated samples (as zip files) will be saved in `outputs/imagenet32/<exp_id>`.
 
+## ImageNet-256
+
+For ImageNet-256 training, follow a similar data preparation pipeline (downsample to 256x256 pixels instead). We based our implementation on the official code of [LightningDiT](https://github.com/hustvl/LightningDiT), and modified the data loading processes to enable OT.
+
 ## Pretrained Models
 
 Pretrained checkpoints for CIFAR-10 and ImageNet-32 trained using FM/OT/C<sup>2</sup>OT are available at [Hugging Face](https://huggingface.co/collections/hkchengrex/c2ot-682d1cbaf0ed156975dfe1a8).
