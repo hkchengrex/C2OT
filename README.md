@@ -120,7 +120,7 @@ Download the captions from https://huggingface.co/datasets/visual-layer/imagenet
 
 #### 5. Precompute the CLIP features (to speed up training)
 ```bash
-python scripts/extract_clip_captions.py --imagenet_path ../imagenet/train_blurred_32/box --caption_path ../imagenet-1k-vl-enriched/train_captions.json --output_path ../imagenet/train_clip_captions.pth
+python scripts/extract_clip.py --imagenet_path ../imagenet/train_blurred_32/box --caption_path ../imagenet-1k-vl-enriched/train_captions.json --output_path ../imagenet/train_clip_captions.pth
 ```
 Replace the path with the path to your downsampled training set and the captions.
 Repeat this for the validation set.
